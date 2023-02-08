@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:java="http://www.mulesoft.org/schema/mule/java" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/java http://www.mulesoft.org/schema/mule/java/current/mule-java.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="300746a4-3edf-4201-b56c-ea650de4acd1" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="ad8cd4bf-943b-47e5-a165-48a83bc831de" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" database="my_db_1" />
+	</db:config>
+	<flow name="INSERT_CANDIDATES" doc:id="8cf17328-1cee-4605-af1a-fdb8358337bc" >
+		<http:listener doc:name="INSERT_Can" doc:id="3d8acc47-b46c-4cc4-b40f-eb378ad1aec7" config-ref="HTTP_Listener_config" path="/InsertUser"/>
+		<ee:transform doc:name="UserData" doc:id="9c687f02-1670-4825-9391-c4d5c5c1b7c7" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="UserData" ><![CDATA[%dw 2.0
+output application/json
+---
+[
+	{
+    "CANDIDATE_NAME": "Ellon Musk",
+    "CANDIDATE_SCORE": "57.12",
+    "IS_SUCCESSFUL": false
+	},
+	{
+    "CANDIDATE_NAME": "Bill Gates",
+    "CANDIDATE_SCORE": "57.12",
+    "IS_SUCCESSFUL": true
+	}
+	,
+	{
+    "CANDIDATE_NAME": "Mark Z",
+    "CANDIDATE_SCORE": "78",
+    "IS_SUCCESSFUL": true
+	},
+	{
+    "CANDIDATE_NAME": "Zhang Y",
+    "CANDIDATE_SCORE": "9.1",
+    "IS_SUCCESSFUL": true
+	},
+	{
+    "CANDIDATE_NAME": "Wilmot",
+    "CANDIDATE_SCORE": "99.99",
+    "IS_SUCCESSFUL": false
+	}
+	
+	]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+<!-- [STUDIO:"Logger"]		<logger level="INFO" doc:name="Logger" doc:id="1e16d3f7-72aa-4cee-8e8b-945e4c5c48bc" message="#[payload]"/> [STUDIO] -->
+<!-- [STUDIO:"Insert"]		<db:insert doc:name="Insert" doc:id="cba12f57-5cbe-416b-9927-0c369b4a7a44" config-ref="Database_Config">
+			<db:sql ><![CDATA[INSERT INTO interview_result (candidate_name, candidate_score, is_successful) VALUES(:CANDIDATE_NAME,:CANDIDATE_SCORE,:IS_SUCCESSFUL)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[vars.UserData]]]></db:input-parameters>
+		</db:insert> [STUDIO] -->
+		<db:bulk-insert doc:name="UserInsert" doc:id="6ebddcc3-004d-4ac1-8219-b526b255b852" config-ref="Database_Config">
+			<db:bulk-input-parameters ><![CDATA[#[vars.UserData]]]></db:bulk-input-parameters>
+			<db:sql ><![CDATA[INSERT INTO interview_result (candidate_name, candidate_score, is_successful) VALUES(:CANDIDATE_NAME,:CANDIDATE_SCORE,:IS_SUCCESSFUL)]]></db:sql>
+		</db:bulk-insert>
+		<set-payload value='#["INSERTED!"]' doc:name="Set Payload" doc:id="c3b7b04e-dd49-4f11-a77c-91ff794d06ad" />
+	
+</flow>
+	<flow name="spring_projectFlow" doc:id="39d7f5b9-75f6-40d3-aeb7-42294eb279d0" >
+		<http:listener doc:name="GET_Candidate" doc:id="f9abcd5f-0cb9-409a-ad0d-16d2d040e614" config-ref="HTTP_Listener_config" path="/getUser"/>
+		<db:select doc:name="SELECT ALL USER LIST" doc:id="3f8a8eb9-6ce5-4305-bad7-78ab63eb95a8" config-ref="Database_Config">
+			<db:sql ><![CDATA[SELECT * FROM interview_result;]]></db:sql>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="899e7f08-b09b-4741-a160-15ff65c1ce2a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="spring_projectFlow1" doc:id="c7f1c23e-499b-4a23-ad0d-96029b98398c" >
+		<http:listener doc:name="Delete_Can" doc:id="5955e4d4-db99-4ee2-afc3-9f099bcd07d4" config-ref="HTTP_Listener_config" path="/delUser"/>
+<!-- [STUDIO:"Pass_User_name"]		<set-payload value="#[attributes.queryParams.name]" doc:name="Pass_User_name" doc:id="c4886a11-fa2c-41a1-99b9-e05046c32896" /> [STUDIO] -->
+		<db:delete doc:name="Delete" doc:id="a202bc0d-5419-4856-8254-540c7756f9de" config-ref="Database_Config">
+			<db:sql><![CDATA[DELETE FROM interview_result WHERE CANDIDATE_NAME=:name]]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+	name: attributes.queryParams.name
+}]]]></db:input-parameters>
+		</db:delete>
+<set-payload value='#["Data Del!"]' doc:name="Message" doc:id="d33b77e9-7ea8-45b6-832d-3476ebc8e4db" />
+		<!-- [STUDIO:"Select"]		<db:select doc:name="Select" doc:id="0048a9dc-3be4-4c35-b02c-2a934389a08b" target="Users" config-ref="Database_Config">
+			<db:sql ><![CDATA[SELECT * FROM interview_result;]]></db:sql>
+		</db:select> [STUDIO] -->
+		<choice doc:name="Choice" doc:id="5f727779-8692-4f57-b39f-ac5556df712a" >
+			<when expression="#[vars.Users.name == attributes.queryParams.name]">
+				<set-payload value='#["User Deleted!"]' doc:name="UserDeleted" doc:id="5503166d-5b88-41a1-b768-1d4bb1bda86f" />
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Transform Message" doc:id="43918b96-b1b5-448d-85cf-e1750138a5c9" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"MSG": "Try Again"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="Copy_of_craft-db-projectFlow" doc:id="ed49575e-e326-4c0f-81c0-7626eae0fc26" >
+		<http:listener doc:name="UPDATE" doc:id="9fcc2dda-8fd1-4a26-9f47-d46e1dbe9910" config-ref="HTTP_Listener_config" path="/updateUser" allowedMethods="PUT"/>
+		<db:update doc:name="UpdateUser" doc:id="1c6fe72b-80a6-4b8d-ac20-c7e5e5287346" config-ref="Database_Config" >
+			<db:sql ><![CDATA[UPDATE interview_result set  candidate_score = :score where id = :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{       "id": attributes.queryParams.id,
+        "score": attributes.queryParams.score
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value="Done!" doc:name="UserUpdatesMSG" doc:id="149cb3e2-6227-4b60-a619-fc1d1379bae0" />
+	</flow>
+</mule>
